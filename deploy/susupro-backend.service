@@ -1,0 +1,21 @@
+[Unit]
+Description=SusuPro backend
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=susupro-app
+Group=susupro-app
+WorkingDirectory=/opt/susupro/backend
+EnvironmentFile=/opt/susupro/backend/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/susupro/backend/logs
+
+[Install]
+WantedBy=multi-user.target

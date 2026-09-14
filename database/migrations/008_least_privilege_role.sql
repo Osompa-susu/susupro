@@ -1,0 +1,12 @@
+-- Migration 008: Least-Privilege Application Role
+-- Not auto-applied (no superuser credentials should live in a
+-- migration runner) — run manually once per environment by whoever
+-- has DB admin access.
+
+-- CREATE ROLE susupro_app LOGIN PASSWORD 'set-via-secrets-manager';
+-- GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO susupro_app;
+-- GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO susupro_app;
+-- REVOKE DELETE ON ledger_entries, audit_logs, security_events FROM susupro_app;
+-- (DELETE on these is blocked by trigger anyway — this is defense in
+--  depth at the grant level, not the only control.)
+-- REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
