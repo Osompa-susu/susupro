@@ -5,9 +5,9 @@
 
 INSERT INTO users (staff_code, full_name, phone, password_hash, role_id, status)
 VALUES
-    ('A-001', 'Demo Admin', '0240000001', '$2b$12$replace.with.a.real.bcrypt.hash.before.use', (SELECT id FROM roles WHERE name='admin'), 'active'),
-    ('W-001', 'Kofi Mensah', '0240000002', '$2b$12$replace.with.a.real.bcrypt.hash.before.use', (SELECT id FROM roles WHERE name='worker'), 'active'),
-    ('W-002', 'Adwoa Asante', '0240000003', '$2b$12$replace.with.a.real.bcrypt.hash.before.use', (SELECT id FROM roles WHERE name='worker'), 'active');
+    ('A-001', 'Demo Admin', '0240000001', '$2a$10$Fy7nMCpl6UlU9z9BO4iIXOTDzjPVQokf0mujJAxilQv1KAj/u0EY6', (SELECT id FROM roles WHERE name='admin'), 'active'),
+    ('W-001', 'Kofi Mensah', '0240000002', '$2a$10$Fy7nMCpl6UlU9z9BO4iIXOTDzjPVQokf0mujJAxilQv1KAj/u0EY6', (SELECT id FROM roles WHERE name='worker'), 'active'),
+    ('W-002', 'Adwoa Asante', '0240000003', '$2a$10$Fy7nMCpl6UlU9z9BO4iIXOTDzjPVQokf0mujJAxilQv1KAj/u0EY6', (SELECT id FROM roles WHERE name='worker'), 'active');
 
 INSERT INTO customers (full_name, phone, community, savings_plan, registered_by)
 SELECT v.full_name, v.phone, v.community, v.savings_plan, (SELECT id FROM users WHERE staff_code = 'W-001')

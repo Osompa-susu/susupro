@@ -4,21 +4,20 @@
 const { Pool } = require('pg');
 const env = require('../config/env');
 
+// Render (and most managed Postgres providers) require SSL for
+// connections, but reject the default strict certificate validation
+// since they use an internally-issued cert. Only applied in
+// production — local development Postgres has no SSL requirement.
 const pool = new Pool({
   connectionString: env.DATABASE_URL,
   max: 10,
+  ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 pool.on('error', (err) => {
   console.error('Unexpected PostgreSQL pool error', err);
 });
 
-// Financial operations (Phase 8+) must use this rather than a bare
-// pool.query() sequence, so a partial failure never leaves a half-
-// completed financial state. SERIALIZABLE isolation plus a retry on
-// serialization_failure (Postgres error 40001) closes the write-skew
-// gap where two concurrent operations on the same account could both
-// read a stale balance before either commits.
 async function withTransaction(fn, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     const client = await pool.connect();
