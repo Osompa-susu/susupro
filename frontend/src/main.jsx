@@ -5,6 +5,7 @@ import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { NotificationProvider } from './context/NotificationContext.jsx';
 import './styles/index.css';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Phase 16: register the service worker for PWA installability. Wrapped
 // in a feature check and try/catch since this must never block the app
@@ -19,12 +20,14 @@ if ('serviceWorker' in navigator) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <NotificationProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </NotificationProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <NotificationProvider>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </NotificationProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );
