@@ -34,14 +34,16 @@ export async function apiFetch(path, { method = 'GET', body } = {}) {
     onUnauthorized();
     throw { error: data.error || 'Your session has expired. Please log in again.' };
   }
-if (!res.ok) {
-  let message = 'Something went wrong. Please try again.';
-  if (Array.isArray(data.error)) {
-    message = data.error.map((e) => e.msg).filter(Boolean).join(' ') || message;
-  } else if (typeof data.error === 'string' && data.error.trim()) {
-    message = data.error;
+  if (!res.ok) {
+    let message = 'Something went wrong. Please try again.';
+    if (Array.isArray(data.error)) {
+      message = data.error.map((e) => e.msg).filter(Boolean).join(' ') || message;
+    } else if (typeof data.error === 'string' && data.error.trim()) {
+      message = data.error;
+    }
+    throw { error: message, fieldErrors: Array.isArray(data.error) ? data.error : undefined };
   }
-  throw { error: message };
+  return data;
 }
 
 export function genIdempotencyKey() {
