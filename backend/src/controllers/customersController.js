@@ -8,6 +8,7 @@ async function register(req, res, next) {
     const customer = await customerService.register({
       fullName: req.body.fullName.trim(), phone: req.body.phone.trim().replace(/\s+/g, ''),
       community: req.body.community, savingsPlan: req.body.savingsPlan,
+      smsNotificationsEnabled: req.body.smsNotificationsEnabled,
       registeredBy: req.user.id, ip: req.ip,
     });
     res.status(201).json(customer);
@@ -39,4 +40,18 @@ async function getByCode(req, res, next) {
   }
 }
 
-module.exports = { register, search, getByCode };
+async function setSmsConsent(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: errors.array() });
+  try {
+    const result = await customerService.setSmsConsent({
+      customerCode: req.params.customerCode, enabled: req.body.enabled, changedBy: req.user.id, ip: req.ip,
+    });
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+}
+
+module.exports = { register, search, getByCode, setSmsConsent };

@@ -1,7 +1,7 @@
 const express = require('express');
 const controller = require('../controllers/customersController');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { registerValidator, searchValidator, customerCodeValidator } = require('../validators/customerValidators');
+const { registerValidator, searchValidator, customerCodeValidator, smsConsentValidator } = require('../validators/customerValidators');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin', 'worker'));
@@ -11,5 +11,6 @@ router.use(requireAuth, requireRole('admin', 'worker'));
 router.post('/', registerValidator, controller.register);
 router.get('/search', searchValidator, controller.search);
 router.get('/:customerCode', customerCodeValidator, controller.getByCode);
+router.patch('/:customerCode/sms-notifications', smsConsentValidator, controller.setSmsConsent);
 
 module.exports = router;

@@ -13,6 +13,13 @@ const env = {
   DATABASE_URL: process.env.DATABASE_URL,
   JWT_SECRET: process.env.JWT_SECRET,
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  // Optional — SMS notifications are an opt-in feature. The app must
+  // fully start and function without these set; a customer who has
+  // consented to SMS just won't actually receive one until the
+  // business owner configures a real Arkesel account. Never required
+  // for startup, unlike DATABASE_URL/JWT_SECRET/CORS_ORIGIN above.
+  SMS_API_KEY: process.env.SMS_API_KEY || null,
+  SMS_SENDER_ID: process.env.SMS_SENDER_ID || 'SusuPro',
 };
 
 if (env.NODE_ENV === 'production') {

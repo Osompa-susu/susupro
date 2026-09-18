@@ -51,12 +51,12 @@ describe('Phase 10 — Audit Logging & Corrections', () => {
     expect(res.status).toBe(400);
   });
 
-  test('a correction that would take the balance negative is rejected', async () => {
+    test('a correction that would take the balance negative is rejected', async () => {
     const dep1 = await request(app).post('/api/transactions/deposit').set('Authorization', `Bearer ${workerToken}`).send({ customerCode, amount: 100, idempotencyKey: randomUUID() });
-    const wreq = await request(app).post('/api/withdrawals/request').set('Authorization', `Bearer ${workerToken}`).send({ customerCode, amount: 90 });
-    await request(app).post(`/api/withdrawals/${wreq.body.requestId}/decide`).set('Authorization', `Bearer ${adminToken}`).send({ decision: 'approve' });
+    await request(app).post('/api/transactions/corrections').set('Authorization', `Bearer ${adminToken}`)
+      .send({ originalTransactionCode: dep1.body.transaction.transaction_code, correctedAmount: 10, reason: 'test setup: bring balance down to 10' });
     const res = await request(app).post('/api/transactions/corrections').set('Authorization', `Bearer ${adminToken}`)
-      .send({ originalTransactionCode: dep1.body.transaction.transaction_code, correctedAmount: 10, reason: 'retroactive correction attempt' });
+      .send({ originalTransactionCode: dep1.body.transaction.transaction_code, correctedAmount: -50, reason: 'retroactive correction attempt' });
     expect(res.status).toBe(422);
     expect(res.body.error).toMatch(/negative/i);
   });

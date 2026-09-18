@@ -23,12 +23,26 @@ export default function CustomerProfile() {
   const [reason, setReason] = useState('');
   const [correctionError, setCorrectionError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [togglingConsent, setTogglingConsent] = useState(false);
 
   function load() {
     setLoading(true); setError(null);
     apiFetch(`/api/customers/${customerCode}`).then(setData).catch(err => setError(err.error)).finally(() => setLoading(false));
   }
   useEffect(load, [customerCode]);
+
+  async function toggleSmsConsent(nextEnabled) {
+    setTogglingConsent(true);
+    try {
+      await apiFetch(`/api/customers/${customerCode}/sms-notifications`, { method: 'PATCH', body: { enabled: nextEnabled } });
+      notify(nextEnabled ? 'SMS notifications enabled.' : 'SMS notifications disabled.');
+      load();
+    } catch (err) {
+      notify(err.error || 'Could not update this setting.', 'error');
+    } finally {
+      setTogglingConsent(false);
+    }
+  }
 
   function openCorrection(row) {
     setCorrectionTarget(row);
@@ -81,6 +95,27 @@ export default function CustomerProfile() {
         <Link to={`/deposit?customer=${c.customer_code}`}><Button variant="gold">Record Deposit</Button></Link>
         <Link to={`/withdraw?customer=${c.customer_code}`}><Button variant="ghost">Request Withdrawal</Button></Link>
       </div>
+      <Panel title="SMS Deposit Notifications">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm">
+              Status: <strong className={c.sms_notifications_enabled ? 'text-good' : 'text-muted'}>
+                {c.sms_notifications_enabled ? 'Enabled' : 'Disabled'}
+              </strong>
+            </p>
+            <p className="text-xs text-muted mt-0.5">
+              When enabled, the customer is charged GHS 0.20 per message, deducted from their own balance. Only change this with their agreement.
+            </p>
+          </div>
+          <Button
+            variant={c.sms_notifications_enabled ? 'danger' : 'gold'}
+            loading={togglingConsent}
+            onClick={() => toggleSmsConsent(!c.sms_notifications_enabled)}
+          >
+            {c.sms_notifications_enabled ? 'Disable' : 'Enable'}
+          </Button>
+        </div>
+      </Panel>
       <Panel title="Transaction History">
         {history.length === 0 ? <EmptyState message="No transactions yet for this customer." /> : (
           <DataTable keyField="transaction_code" rows={history} columns={[

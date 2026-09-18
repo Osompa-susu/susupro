@@ -1,5 +1,8 @@
 const { pool, withTransaction } = require('../db/pool');
 const { logAudit } = require('../utils/audit');
+const { sendSms } = require('../utils/smsService');
+
+const SMS_NOTIFICATION_FEE = 0.20; // GHS — confirmed with the business owner: customers pay this, not the business.
 
 function makeAppError(status, message) {
   const err = new Error(message);
@@ -16,7 +19,7 @@ function makeAppError(status, message) {
 async function deposit({ customerCode, amount, performedBy, idempotencyKey, ip }) {
   const amountFixed = Math.round(Number(amount) * 100) / 100;
 
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     // Idempotency check FIRST, inside the same transaction as the
     // insert, so a concurrent retry can't slip in between the check
     // and the insert.
@@ -52,11 +55,85 @@ async function deposit({ customerCode, amount, performedBy, idempotencyKey, ip }
       details: { customerCode, amount: amountFixed, transactionCode: entry.rows[0].transaction_code }, ip,
     });
 
-    return { transaction: entry.rows[0], newBalance: balRows[0].balance, deduplicated: false };
+    return { transaction: entry.rows[0], newBalance: balRows[0].balance, deduplicated: false, accountId };
   }).catch((err) => {
     if (err.code === '23505') return { deduplicated: true }; // extremely unlikely race on the idempotency key itself
     throw err;
   });
+
+  // ---------------------------------------------------------------------
+  // SMS NOTIFICATION — deliberately OUTSIDE the deposit's own atomic
+  // transaction, and wrapped so it can NEVER cause the deposit itself
+  // to fail or roll back. A customer's money is recorded successfully
+  // regardless of whether an SMS provider is reachable, configured, or
+  // even exists yet. Only attempted for a genuinely new deposit (never
+  // for a deduplicated retry, which would otherwise double-notify and
+  // double-charge for the same underlying transaction).
+  if (!result.deduplicated) {
+    await tryNotifyDeposit({ accountId: result.accountId, customerCode, depositAmount: amountFixed, ledgerEntryId: result.transaction.id, newBalance: result.newBalance, performedBy });
+  }
+
+  return result;
+}
+
+async function tryNotifyDeposit({ accountId, customerCode, depositAmount, ledgerEntryId, newBalance, performedBy }) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT c.id AS customer_id, c.phone, c.sms_notifications_enabled
+         FROM customers c JOIN accounts a ON a.customer_id = c.id
+        WHERE a.id = $1`,
+      [accountId]
+    );
+    const customer = rows[0];
+    if (!customer || !customer.sms_notifications_enabled) return; // no consent — never send
+
+    if (Number(newBalance) < SMS_NOTIFICATION_FEE) {
+      // Can't cover even the notification fee — skip, don't force it
+      // negative, don't send a message they can't pay for.
+      await pool.query(
+        `INSERT INTO sms_notifications (customer_id, ledger_entry_id, phone, message, status)
+         VALUES ($1, $2, $3, $4, 'skipped_insufficient_balance')`,
+        [customer.customer_id, ledgerEntryId, customer.phone, '(not sent — insufficient balance to cover notification fee)']
+      );
+      return;
+    }
+
+    const message = `SusuPro: Deposit of GHS ${depositAmount.toFixed(2)} received. New balance: GHS ${Number(newBalance).toFixed(2)}.`;
+
+    // Send FIRST, charge the fee only if the send actually succeeded —
+    // a customer should never be charged for a message they didn't
+    // receive. The reverse order (charge-then-send) would risk exactly
+    // that if the provider call failed after the fee was taken.
+    let providerResponse;
+    try {
+      providerResponse = await sendSms({ phone: customer.phone, message });
+    } catch (sendErr) {
+      await pool.query(
+        `INSERT INTO sms_notifications (customer_id, ledger_entry_id, phone, message, status, provider_response)
+         VALUES ($1, $2, $3, $4, 'failed', $5)`,
+        [customer.customer_id, ledgerEntryId, customer.phone, message, JSON.stringify({ error: sendErr.message, code: sendErr.code })]
+      );
+      return;
+    }
+
+    await withTransaction(async (client) => {
+      const feeEntry = await client.query(
+        `INSERT INTO ledger_entries (account_id, entry_type, signed_amount, performed_by, status, note)
+         VALUES ($1, 'fee', $2, $3, 'completed', 'SMS deposit notification fee')
+         RETURNING id`,
+        [accountId, -SMS_NOTIFICATION_FEE, performedBy] // attributed to the worker whose deposit triggered it — schema requires a real, non-null user
+      );
+      await client.query(
+        `INSERT INTO sms_notifications (customer_id, ledger_entry_id, fee_entry_id, phone, message, status, provider_response)
+         VALUES ($1, $2, $3, $4, $5, 'sent', $6)`,
+        [customer.customer_id, ledgerEntryId, feeEntry.rows[0].id, customer.phone, message, JSON.stringify(providerResponse)]
+      );
+    });
+  } catch (unexpectedErr) {
+    // Absolute last resort: never let a notification-path bug surface
+    // to the caller of deposit(). Logged to the server console only.
+    console.error('[sms-notification] unexpected error, deposit itself was unaffected', unexpectedErr);
+  }
 }
 
 // Exposed now for Phase 8's "my transactions" need; grows in Phase 9

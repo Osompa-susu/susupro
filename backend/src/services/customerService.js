@@ -7,12 +7,12 @@ function makeAppError(status, message) {
   return err;
 }
 
-async function register({ fullName, phone, community, savingsPlan, registeredBy, ip }) {
+async function register({ fullName, phone, community, savingsPlan, smsNotificationsEnabled, registeredBy, ip }) {
   try {
     const custRes = await pool.query(
-      `INSERT INTO customers (full_name, phone, community, savings_plan, registered_by)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, customer_code`,
-      [fullName, phone, community || null, savingsPlan || 'standard', registeredBy]
+      `INSERT INTO customers (full_name, phone, community, savings_plan, sms_notifications_enabled, registered_by)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, customer_code`,
+      [fullName, phone, community || null, savingsPlan || 'standard', !!smsNotificationsEnabled, registeredBy]
     );
     const customer = custRes.rows[0];
     // A customer never exists without an account — both inserts
@@ -64,4 +64,17 @@ async function getByCode(customerCode) {
   return { customer, history };
 }
 
-module.exports = { register, search, getByCode };
+async function setSmsConsent({ customerCode, enabled, changedBy, ip }) {
+  const { rows } = await pool.query(
+    `UPDATE customers SET sms_notifications_enabled = $1, updated_at = now() WHERE customer_code = $2 RETURNING id, customer_code, sms_notifications_enabled`,
+    [enabled, customerCode]
+  );
+  if (rows.length === 0) throw makeAppError(404, 'Customer not found');
+  await logAudit(pool, {
+    actorUserId: changedBy, action: 'SMS_CONSENT_CHANGED', entityType: 'customer', entityId: rows[0].id,
+    details: { customerCode, enabled }, ip,
+  });
+  return rows[0];
+}
+
+module.exports = { register, search, getByCode, setSmsConsent };
