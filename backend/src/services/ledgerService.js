@@ -108,10 +108,14 @@ async function tryNotifyDeposit({ accountId, customerCode, depositAmount, ledger
     try {
       providerResponse = await sendSms({ phone: customer.phone, message });
     } catch (sendErr) {
+      // Log the ACTUAL provider response, not just our own wrapper
+      // message — a generic "SMS provider rejected the message" with
+      // no detail is useless for real debugging. sendErr.providerResponse
+      // (set in smsService.js) carries Arkesel's real response body.
       await pool.query(
         `INSERT INTO sms_notifications (customer_id, ledger_entry_id, phone, message, status, provider_response)
          VALUES ($1, $2, $3, $4, 'failed', $5)`,
-        [customer.customer_id, ledgerEntryId, customer.phone, message, JSON.stringify({ error: sendErr.message, code: sendErr.code })]
+        [customer.customer_id, ledgerEntryId, customer.phone, message, JSON.stringify({ error: sendErr.message, code: sendErr.code, providerResponse: sendErr.providerResponse || null })]
       );
       return;
     }
