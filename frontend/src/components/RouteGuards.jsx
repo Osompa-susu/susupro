@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // These guards control what the frontend renders, nothing more. The
@@ -8,7 +8,15 @@ import { useAuth } from '../context/AuthContext.jsx';
 // once Phase 6 builds it.
 export function RequireAuth({ children }) {
   const { user } = useAuth();
+  const location = useLocation();
   if (!user) return <Navigate to="/login" replace />;
+  // A worker/admin logging in with a temporary password gets routed
+  // here instead of the rest of the app until they set a real one —
+  // the backend blocks every other endpoint while this flag is true,
+  // so letting them land anywhere else just shows broken pages.
+  if (user.forcePasswordChange && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
   return children;
 }
 export function RequireRole({ role, children }) {

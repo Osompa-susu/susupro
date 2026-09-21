@@ -33,7 +33,13 @@ async function requireAuth(req, res, next) {
 
   req.user = { id: session.user_id, role: session.role_name, sessionId: session.id, forcePasswordChange: session.force_password_change };
 
-  const allowedWhileForced = ['/api/auth/change-password', '/api/auth/logout'];
+  // /api/auth/me is allowed here on purpose: the frontend calls it
+  // right after login to learn who's signed in and whether a forced
+  // password change is pending, so it can route to the change-password
+  // screen instead of getting stuck. It returns only the caller's own
+  // non-financial profile (name, staff code, role, this flag) — nothing
+  // that requires the password change to have happened first.
+  const allowedWhileForced = ['/api/auth/change-password', '/api/auth/logout', '/api/auth/me'];
   if (req.user.forcePasswordChange && !allowedWhileForced.includes(req.originalUrl.split('?')[0])) {
     return res.status(403).json({ error: 'Password change required before continuing', code: 'PASSWORD_CHANGE_REQUIRED' });
   }

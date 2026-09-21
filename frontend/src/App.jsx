@@ -4,6 +4,7 @@ import { RequireAuth, RequireRole } from './components/RouteGuards.jsx';
 import Layout from './components/Layout.jsx';
 
 import Login from './pages/Login.jsx';
+import ForcePasswordChange from './pages/ForcePasswordChange.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import CustomerRegister from './pages/CustomerRegister.jsx';
 import CustomerProfile from './pages/CustomerProfile.jsx';
@@ -27,6 +28,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/change-password" element={<RequireAuth><ForcePasswordChange /></RequireAuth>} />
 
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route path="/" element={<Dashboard />} />

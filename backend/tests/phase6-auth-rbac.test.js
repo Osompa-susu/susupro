@@ -88,7 +88,16 @@ describe('Phase 6 — Authentication & RBAC', () => {
     await pool.query(`UPDATE users SET force_password_change = true WHERE id = $1`, [worker.id]);
     const login = await request(app).post('/api/auth/login').send({ phone: worker.phone, password: worker.password });
     expect(login.body.forcePasswordChange).toBe(true);
-    const blocked = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${login.body.token}`);
+
+    // /api/auth/me stays reachable so the frontend can learn a change
+    // is pending and route to the change-password screen instead of
+    // getting stuck with no way forward.
+    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${login.body.token}`);
+    expect(me.status).toBe(200);
+    expect(me.body.forcePasswordChange).toBe(true);
+
+    // Everything else stays blocked.
+    const blocked = await request(app).get('/api/customers/search?q=test').set('Authorization', `Bearer ${login.body.token}`);
     expect(blocked.status).toBe(403);
     expect(blocked.body.code).toBe('PASSWORD_CHANGE_REQUIRED');
   });

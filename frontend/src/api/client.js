@@ -32,7 +32,7 @@ export async function apiFetch(path, { method = 'GET', body } = {}) {
   if (res.status === 401) {
     authToken = null;
     onUnauthorized();
-    throw { error: data.error || 'Your session has expired. Please log in again.' };
+    throw { error: data.error || 'Your session has expired. Please log in again.', code: data.code };
   }
   if (!res.ok) {
     let message = 'Something went wrong. Please try again.';
@@ -41,7 +41,10 @@ export async function apiFetch(path, { method = 'GET', body } = {}) {
     } else if (typeof data.error === 'string' && data.error.trim()) {
       message = data.error;
     }
-    throw { error: message, fieldErrors: Array.isArray(data.error) ? data.error : undefined };
+    // data.code (e.g. 'MFA_REQUIRED', 'PASSWORD_CHANGE_REQUIRED') must reach
+    // the caller — without it, callers that check err.code (Login.jsx's MFA
+    // step, the forced-password-change redirect) never fire.
+    throw { error: message, code: data.code, fieldErrors: Array.isArray(data.error) ? data.error : undefined };
   }
   return data;
 }

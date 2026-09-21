@@ -41,8 +41,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  // Re-fetches the current user. Used after a forced password change
+  // completes, so `user.forcePasswordChange` flips to false and the
+  // route guard lets the person into the rest of the app.
+  const refreshUser = useCallback(async () => {
+    const me = await apiFetch('/api/auth/me');
+    setUser(me);
+    return me;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, authError }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, authError, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
