@@ -15,6 +15,7 @@ const reportRoutes = require('./routes/reports');
 const auditRoutes = require('./routes/audit');
 const securityRoutes = require('./routes/security');
 const deviceRoutes = require('./routes/devices');
+const billingRoutes = require('./routes/billing');
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/devices', deviceRoutes);
+app.use('/api/billing', billingRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 app.use(errorHandler);
